@@ -13,54 +13,97 @@ permissions:
 
 jobs:
   build:
-    name: Build APK
+    name: Build Android APK
     runs-on: ubuntu-latest
 
     steps:
+      # --------------------------------------------------
+      # 1. Checkout repository
+      # --------------------------------------------------
       - name: Checkout source
         uses: actions/checkout@v4
 
+      # --------------------------------------------------
+      # 2. Install Java 17
+      # --------------------------------------------------
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
-          cache: gradle
 
-      - name: Set up Gradle
+      # --------------------------------------------------
+      # 3. Install Gradle
+      # --------------------------------------------------
+      - name: Set up Gradle 8.7
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
+          cache-disabled: true
 
-      - name: Check Java
-        run: java -version
+      # --------------------------------------------------
+      # 4. Check Java
+      # --------------------------------------------------
+      - name: Verify Java
+        run: |
+          java -version
 
-      - name: Check Gradle
-        run: gradle --version
+      # --------------------------------------------------
+      # 5. Check Gradle
+      # --------------------------------------------------
+      - name: Verify Gradle
+        run: |
+          gradle --version
 
-      - name: Build APK
+      # --------------------------------------------------
+      # 6. Check project structure
+      # --------------------------------------------------
+      - name: Verify project
+        working-directory: AppLocker
+        run: |
+          echo "Project files:"
+          find . -maxdepth 3 -type f | sort
+
+          echo ""
+          echo "Gradle files:"
+          test -f build.gradle.kts
+          test -f settings.gradle.kts
+          test -f app/build.gradle.kts
+
+      # --------------------------------------------------
+      # 7. Build debug APK
+      # --------------------------------------------------
+      - name: Build Debug APK
         working-directory: AppLocker
         run: |
           gradle clean assembleDebug \
             --no-daemon \
             --stacktrace \
-            --info
+            --warning-mode all
 
+      # --------------------------------------------------
+      # 8. Verify APK
+      # --------------------------------------------------
       - name: Verify APK
         working-directory: AppLocker
         run: |
-          if [ ! -f app/build/outputs/apk/debug/app-debug.apk ]; then
-            echo "APK was not generated."
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+
+          if [ ! -f "$APK" ]; then
+            echo "ERROR: APK was not generated."
             exit 1
           fi
 
-          echo "APK generated successfully:"
-          ls -lh app/build/outputs/apk/debug/app-debug.apk
+          echo "APK successfully generated:"
+          ls -lh "$APK"
 
+      # --------------------------------------------------
+      # 9. Upload APK
+      # --------------------------------------------------
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: AppLocker-debug
+          name: AppLocker-debug-apk
           path: AppLocker/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
